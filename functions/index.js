@@ -14,6 +14,9 @@ const app = express();
 // Automatically allow cross-origin requests
 app.use(cors({ origin: true }));
 
+const { onTaskDispatched } = require('firebase-functions/v2/tasks');
+const {getFunctions} = require("firebase-admin/functions");
+
 const {onRequest} = require("firebase-functions/v2/https");
 const {onDocumentWritten} = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
@@ -111,4 +114,32 @@ app.post('/get-reward', async (request, response) => {
   });
 });
 
+exports.requestReward = onTaskDispatched({
+  retryConfig: {
+    maxAttempts: 1,
+    minBackoffSeconds: 60,
+  },
+  rateLimits: {
+    maxConcurrentDispatches: 6,
+  },
+}, async (context) => {
+  const taskData = context.data; 
+  // Access task data here
+
+  // Log the task data
+  // console.log('Task enqueued:', taskData);
+  return taskData; 
+});
+
+app.post('/get-reward-v2', async (request, response) => {
+  const queue = getFunctions().taskQueue("requestReward");
+
+  const res = await queue.enqueue({
+    data: request?.body
+  })
+
+  response.status(200).json(request?.body?.user)
+})
+
 exports.widgets = onRequest(app);
+
